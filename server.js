@@ -761,8 +761,8 @@ async function initializeDataFiles() {
 async function startServer() {
   try {
     // Ensure data directory and files exist for fallback
-    //await ensureDataDirectory();
-    //await initializeDataFiles();
+    await ensureDataDirectory();
+    await initializeDataFiles();
     
     // Test database connection
     console.log('🔍 Testing database connection...');
