@@ -316,6 +316,14 @@ async function authenticateAdmin(req, res, next) {
       return res.status(401).json({ authenticated: false, message: 'No admin session token' });
     }
 
+    // Check if database is available before attempting authentication
+    if (!isDatabaseAvailable) {
+      return res.status(503).json({ 
+        authenticated: false, 
+        message: 'Database not available for admin authentication' 
+      });
+    }
+
     const session = await adminOperations.findSession(adminSessionToken);
     if (!session) {
       return res.status(401).json({ authenticated: false, message: 'Invalid admin session' });
@@ -330,7 +338,11 @@ async function authenticateAdmin(req, res, next) {
     next();
   } catch (error) {
     console.error('Admin authentication error:', error);
-    throw new Error(`Admin authentication failed: ${error.message}`);
+    return res.status(500).json({ 
+      authenticated: false, 
+      message: 'Admin authentication error',
+      error: error.message 
+    });
   }
 }
 
@@ -731,46 +743,17 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Ensure data directory exists
-async function ensureDataDirectory() {
-    try {
-        await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
-    } catch (error) {
-        console.log('Data directory already exists or error creating:', error.message);
-    }
-}
-
-// Initialize data files if they don't exist
-async function initializeDataFiles() {
-    try {
-        await fs.access(PORTFOLIO_FILE);
-    } catch (error) {
-        await fs.writeFile(PORTFOLIO_FILE, JSON.stringify([], null, 2));
-        console.log('Created portfolio.json file');
-    }
-
-    try {
-        await fs.access(CLOSED_POSITIONS_FILE);
-    } catch (error) {
-        await fs.writeFile(CLOSED_POSITIONS_FILE, JSON.stringify([], null, 2));
-        console.log('Created closed-positions.json file');
-    }
-}
 
 // Start server
 async function startServer() {
   try {
-    // Ensure data directory and files exist for fallback
-    await ensureDataDirectory();
-    await initializeDataFiles();
-    
     // Test database connection
     console.log('🔍 Testing database connection...');
     const isConnected = await testConnection();
     isDatabaseAvailable = isConnected;
     
     if (!isConnected) {
-      console.log('⚠️  Database not connected - running in fallback mode');
+      console.log('⚠️  Database not connected - running in database-only mode');
       console.log('💡 Make sure to set DATABASE_URL environment variable for production');
     } else {
       // Initialize database tables
@@ -780,7 +763,7 @@ async function startServer() {
     
     app.listen(PORT, () => {
       console.log(`🚀 Indian Stock Portfolio Tracker running on http://localhost:${PORT}`);
-      console.log(`📊 Using ${isConnected ? 'PostgreSQL database' : 'JSON files (fallback mode)'} for data storage`);
+      console.log(`📊 Using ${isConnected ? 'PostgreSQL database' : 'database-only mode'} for data storage`);
       console.log(`🌐 Health check available at: http://localhost:${PORT}/health`);
       console.log(`🔍 Database status at: http://localhost:${PORT}/api/db-status`);
       
@@ -790,10 +773,17 @@ async function startServer() {
         console.log('   1. Set up a PostgreSQL database');
         console.log('   2. Set DATABASE_URL environment variable');
         console.log('   3. Restart the server');
+        console.log('');
+        console.log('⚠️  Admin functionality requires database connection');
+      } else {
+        console.log('');
+        console.log('🔐 Admin login available at: http://localhost:${PORT}/admin.html');
+        console.log('👤 Default admin credentials: naresh/pagadala');
       }
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   }
 }

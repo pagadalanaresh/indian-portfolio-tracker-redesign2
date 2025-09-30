@@ -2277,12 +2277,8 @@ class PortfolioProDemo {
                 }
             });
 
-            // Save updated data to APIs in background
+            // Update UI with new data (no save to database during background updates)
             if (successCount > 0) {
-                this.savePortfolioData().catch(err => console.warn('Background portfolio save failed:', err));
-                this.saveWatchlistData().catch(err => console.warn('Background watchlist save failed:', err));
-                
-                // Update UI with new data
                 this.renderDashboard();
                 this.renderSectionContent(this.currentSection);
                 
@@ -2371,12 +2367,8 @@ class PortfolioProDemo {
             }
         }
 
-        // Save updated data to APIs in background
+        // Update UI with new data (no save to database during background updates)
         if (successCount > 0) {
-            this.savePortfolioData().catch(err => console.warn('Background portfolio save failed:', err));
-            this.saveWatchlistData().catch(err => console.warn('Background watchlist save failed:', err));
-            
-            // Update UI with new data
             this.renderDashboard();
             this.renderSectionContent(this.currentSection);
             
@@ -4057,6 +4049,7 @@ class PortfolioProDemo {
             // Create new portfolio entry
             const newStock = {
                 id: Date.now(),
+                ticker: watchlistStock.symbol, // Add ticker field for database consistency
                 symbol: watchlistStock.symbol,
                 name: watchlistStock.name,
                 sector: watchlistStock.sector,

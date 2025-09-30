@@ -67,7 +67,7 @@ async function initializeDatabase() {
     // Create closed_positions table with user_id foreign key
     await client.query(`
       CREATE TABLE IF NOT EXISTS closed_positions (
-        id BIGSERIAL,
+        id BIGSERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         ticker VARCHAR(50) NOT NULL,
         name VARCHAR(255) NOT NULL,
@@ -86,15 +86,14 @@ async function initializeDatabase() {
         final_pl_percent DECIMAL(8,4) NOT NULL,
         closed_date DATE NOT NULL,
         holding_period VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id, user_id)
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     // Create watchlist table with user_id foreign key
     await client.query(`
       CREATE TABLE IF NOT EXISTS watchlist (
-        id BIGSERIAL,
+        id BIGSERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         ticker VARCHAR(50) NOT NULL,
         name VARCHAR(255) NOT NULL,
@@ -105,10 +104,9 @@ async function initializeDatabase() {
         target_price DECIMAL(10,2),
         stop_loss DECIMAL(10,2),
         notes TEXT,
-        added_date DATE NOT NULL,
+        added_date DATE DEFAULT CURRENT_DATE,
         last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id, user_id)
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -157,6 +155,8 @@ async function initializeDatabase() {
         VALUES ($1, $2, $3)
       `, ['naresh', 'naresh@admin.com', hashedPassword]);
       console.log('✅ Default admin user created: naresh/pagadala');
+    } else {
+      console.log('✅ Default admin avaiable');
     }
 
     console.log('✅ Database tables initialized successfully');
@@ -481,15 +481,33 @@ const watchlistOperations = {
       
       // Insert new watchlist items (let database auto-generate IDs)
       for (const item of watchlistItems) {
+        // Ensure we have a valid ticker - use ticker or symbol, and validate it's not null/empty
+        const ticker = item.ticker || item.symbol;
+        if (!ticker || ticker.trim() === '') {
+          console.error('Skipping watchlist item with null/empty ticker:', item);
+          continue; // Skip this item if ticker is null or empty
+        }
+
+        // Ensure we have required fields with defaults
+        const name = item.name || `${ticker} Ltd`;
+        const sector = item.sector || 'Unknown';
+        const currentPrice = item.currentPrice || null;
+        const dayChange = item.dayChange || null;
+        const dayChangePercent = item.dayChangePercent || null;
+        const targetPrice = item.targetPrice || null;
+        const stopLoss = item.stopLoss || null;
+        const notes = item.notes || null;
+        const addedDate = item.addedDate || new Date().toISOString().split('T')[0];
+        const lastUpdated = item.lastUpdated || new Date().toISOString();
+
         await client.query(`
           INSERT INTO watchlist (
             user_id, ticker, name, sector, current_price, day_change, 
             day_change_percent, target_price, stop_loss, notes, added_date, last_updated
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `, [
-          userId, item.ticker || item.symbol, item.name, item.sector,
-          item.currentPrice, item.dayChange, item.dayChangePercent,
-          item.targetPrice, item.stopLoss, item.notes, item.addedDate, item.lastUpdated
+          userId, ticker, name, sector, currentPrice, dayChange, dayChangePercent,
+          targetPrice, stopLoss, notes, addedDate, lastUpdated
         ]);
       }
       
