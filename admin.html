@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal - Portfolio Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .admin-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .admin-header {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .admin-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .admin-username {
+            font-weight: 500;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Login Form */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #dc2626;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-subtitle {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #dc2626;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+
+        .login-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+
+        /* Dashboard */
+        .dashboard {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .dashboard-header {
+            margin-bottom: 2rem;
+        }
+
+        .dashboard-title {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+
+        .dashboard-subtitle {
+            color: #64748b;
+            font-size: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* Users Table */
+        .users-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .users-table th,
+        .users-table td {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .users-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .users-table td {
+            color: #1e293b;
+        }
+
+        .user-stats {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+
+        .impersonate-btn {
+            background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .impersonate-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e2e8f0;
+            border-top: 2px solid #dc2626;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .admin-header {
+                padding: 1rem;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .dashboard {
+                padding: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .users-table {
+                font-size: 0.875rem;
+            }
+
+            .users-table th,
+            .users-table td {
+                padding: 0.75rem 1rem;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Login Form -->
+        <div id="loginContainer" class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <h1 class="login-title">🔐 Admin Portal</h1>
+                    <p class="login-subtitle">Portfolio Tracker Administration</p>
+                </div>
+
+                <div class="alert alert-error" id="loginError"></div>
+                <div class="alert alert-success" id="loginSuccess"></div>
+
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label" for="username">Username</label>
+                        <input class="form-input" type="text" id="username" name="username" 
+                               placeholder="Enter admin username" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="password">Password</label>
+                        <input class="form-input" type="password" id="password" name="password" 
+                               placeholder="Enter admin password" required>
+                    </div>
+
+                    <button type="submit" class="login-btn" id="loginBtn">
+                        Sign In
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="dashboardContainer" class="hidden">
+            <!-- Header -->
+            <header class="admin-header">
+                <div class="header-content">
+                    <h1 class="admin-title">
+                        🛡️ Admin Dashboard
+                    </h1>
+                    <div class="admin-info">
+                        <span class="admin-username" id="adminUsername">Admin</span>
+                        <button class="logout-btn" id="logoutBtn">Logout</button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <main class="dashboard">
+                <div class="dashboard-header">
+                    <h2 class="dashboard-title">System Overview</h2>
+                    <p class="dashboard-subtitle">Manage users and monitor portfolio activity</p>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value" id="totalUsers">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Active Portfolios</div>
+                        <div class="stat-value" id="activePortfolios">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Investments</div>
+                        <div class="stat-value" id="totalInvestments">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">System Status</div>
+                        <div class="stat-value" style="color: #16a34a;">Online</div>
+                    </div>
+                </div>
+
+                <!-- Users Section -->
+                <div class="users-section">
+                    <div class="section-header">
+                        <h3 class="section-title">User Management</h3>
+                    </div>
+
+                    <div id="usersLoading" class="loading">
+                        <div class="spinner"></div>
+                        Loading users...
+                    </div>
+
+                    <table class="users-table hidden" id="usersTable">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Portfolio Stats</th>
+                                <th>Joined</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        class AdminPortal {
+            constructor() {
+                this.isAuthenticated = false;
+                this.admin = null;
+                this.users = [];
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.checkAuthStatus();
+            }
+
+            bindEvents() {
+                // Login form
+                document.getElementById('loginForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleLogin();
+                });
+
+                // Logout button
+                document.getElementById('logoutBtn').addEventListener('click', () => {
+                    this.handleLogout();
+                });
+            }
+
+            async checkAuthStatus() {
+                try {
+                    const response = await fetch('/api/admin/auth/check');
+                    const result = await response.json();
+
+                    if (result.authenticated) {
+                        this.isAuthenticated = true;
+                        this.admin = result.admin;
+                        this.showDashboard();
+                        this.loadUsers();
+                    } else {
+                        this.showLogin();
+                    }
+                } catch (error) {
+                    console.error('Auth check error:', error);
+                    this.showLogin();
+                }
+            }
+
+            async handleLogin() {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const loginBtn = document.getElementById('loginBtn');
+
+                if (!username || !password) {
+                    this.showError('Please fill in all fields');
+                    return;
+                }
+
+                loginBtn.disabled = true;
+                loginBtn.textContent = 'Signing In...';
+
+                try {
+                    const response = await fetch('/api/admin/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        this.isAuthenticated = true;
+                        this.admin = result.admin;
+                        this.showSuccess('Login successful!');
+                        setTimeout(() => {
+                            this.showDashboard();
+                            this.loadUsers();
+                        }, 1000);
+                    } else {
+                        this.showError(result.message || 'Login failed');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    this.showError('Connection error. Please try again.');
+                } finally {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Sign In';
+                }
+            }
+
+            async handleLogout() {
+                try {
+                    await fetch('/api/admin/auth/logout', { method: 'POST' });
+                    this.isAuthenticated = false;
+                    this.admin = null;
+                    this.showLogin();
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    // Still show login even if logout request fails
+                    this.showLogin();
+                }
+            }
+
+            async loadUsers() {
+                const loadingEl = document.getElementById('usersLoading');
+                const tableEl = document.getElementById('usersTable');
+
+                loadingEl.classList.remove('hidden');
+                tableEl.classList.add('hidden');
+
+                try {
+                    const response = await fetch('/api/admin/users');
+                    if (response.ok) {
+                        this.users = await response.json();
+                        this.renderUsers();
+                        this.updateStats();
+                    } else {
+                        console.error('Failed to load users');
+                    }
+                } catch (error) {
+                    console.error('Error loading users:', error);
+                } finally {
+                    loadingEl.classList.add('hidden');
+                    tableEl.classList.remove('hidden');
+                }
+            }
+
+            renderUsers() {
+                const tbody = document.getElementById('usersTableBody');
+                tbody.innerHTML = '';
+
+                this.users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <div>
+                                <div style="font-weight: 600;">${user.username}</div>
+                                <div style="font-size: 0.875rem; color: #64748b;">ID: ${user.id}</div>
+                            </div>
+                        </td>
+                        <td>${user.email}</td>
+                        <td>
+                            <div class="user-stats">
+                                <div>Portfolio: ${user.stats.portfolioCount} items</div>
+                                <div>Closed: ${user.stats.closedPositionsCount} positions</div>
+                                <div>Watchlist: ${user.stats.watchlistCount} items</div>
+                                <div>Invested: ₹${user.stats.totalInvested.toLocaleString()}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>${new Date(user.created_at).toLocaleDateString()}</div>
+                            <div style="font-size: 0.875rem; color: #64748b;">
+                                ${new Date(user.created_at).toLocaleTimeString()}
+                            </div>
+                        </td>
+                        <td>
+                            <button class="impersonate-btn" onclick="adminPortal.impersonateUser(${user.id}, '${user.username}')">
+                                Login as User
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
+
+            updateStats() {
+                const totalUsers = this.users.length;
+                const activePortfolios = this.users.filter(u => u.stats.portfolioCount > 0).length;
+                const totalInvestments = this.users.reduce((sum, u) => sum + u.stats.totalInvested, 0);
+
+                document.getElementById('totalUsers').textContent = totalUsers;
+                document.getElementById('activePortfolios').textContent = activePortfolios;
+                document.getElementById('totalInvestments').textContent = `₹${totalInvestments.toLocaleString()}`;
+            }
+
+            async impersonateUser(userId, username) {
+                if (!confirm(`Login as user "${username}"? This will redirect you to their portfolio.`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/admin/impersonate/${userId}`, {
+                        method: 'POST'
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        // Redirect to main portfolio page
+                        window.location.href = '/index.html';
+                    } else {
+                        alert('Failed to impersonate user: ' + (result.message || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Impersonation error:', error);
+                    alert('Error impersonating user. Please try again.');
+                }
+            }
+
+            showLogin() {
+                document.getElementById('loginContainer').classList.remove('hidden');
+                document.getElementById('dashboardContainer').classList.add('hidden');
+                this.clearMessages();
+                document.getElementById('loginForm').reset();
+            }
+
+            showDashboard() {
+                document.getElementById('loginContainer').classList.add('hidden');
+                document.getElementById('dashboardContainer').classList.remove('hidden');
+                document.getElementById('adminUsername').textContent = this.admin?.username || 'Admin';
+            }
+
+            showError(message) {
+                const errorEl = document.getElementById('loginError');
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+                setTimeout(() => {
+                    errorEl.style.display = 'none';
+                }, 5000);
+            }
+
+            showSuccess(message) {
+                const successEl = document.getElementById('loginSuccess');
+                successEl.textContent = message;
+                successEl.style.display = 'block';
+            }
+
+            clearMessages() {
+                document.getElementById('loginError').style.display = 'none';
+                document.getElementById('loginSuccess').style.display = 'none';
+            }
+        }
+
+        // Initialize admin portal
+        const adminPortal = new AdminPortal();
+    </script>
+</body>
+</html>
