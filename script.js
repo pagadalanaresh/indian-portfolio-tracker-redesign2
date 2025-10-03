@@ -293,6 +293,9 @@ class PortfolioProDemo {
 
     // Fetch real market status from Yahoo Finance API
     async fetchMarketStatus() {
+        // First check local market status
+        const localMarketStatus = this.updateMarketStatus();
+        
         try {
             const proxyUrl = 'https://api.allorigins.win/raw?url=';
             const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/^NSEI'; // Nifty 50 index
@@ -308,19 +311,22 @@ class PortfolioProDemo {
                     
                     // Check if market is currently in session
                     const marketState = meta.marketState; // Can be 'REGULAR', 'CLOSED', 'PRE', 'POST'
-                    const isMarketOpen = marketState === 'REGULAR';
+                    const yahooMarketOpen = marketState === 'REGULAR';
                     
-                    // Get current market time from Yahoo
-                    const marketTime = new Date(meta.regularMarketTime * 1000);
+                    console.log(`Yahoo API Market Status: ${marketState}, Yahoo Says Open: ${yahooMarketOpen}, Local Says Open: ${localMarketStatus}`);
                     
-                    // Update market status with real data
+                    // Use local calculation if it says market is open during business hours
+                    // This handles cases where Yahoo API might be delayed or incorrect
+                    const finalMarketStatus = localMarketStatus || yahooMarketOpen;
+                    
+                    // Update market status with final decision
                     const marketIndicator = document.querySelector('.market-indicator');
                     const statusDot = document.querySelector('.status-dot');
                     const marketStatusText = document.querySelector('.market-indicator span');
                     const marketTimeEl = document.querySelector('.market-time');
                     
                     if (marketIndicator && statusDot && marketStatusText && marketTimeEl) {
-                        if (isMarketOpen) {
+                        if (finalMarketStatus) {
                             statusDot.className = 'status-dot active';
                             marketStatusText.textContent = 'Market Open';
                             marketIndicator.style.color = '#10b981';
@@ -340,8 +346,8 @@ class PortfolioProDemo {
                         marketTimeEl.textContent = `${istTime} IST`;
                     }
                     
-                    console.log(`Yahoo API Market Status: ${marketState}, Is Open: ${isMarketOpen}`);
-                    return isMarketOpen;
+                    console.log(`Final Market Status: ${finalMarketStatus ? 'Open' : 'Closed'} (Local: ${localMarketStatus}, Yahoo: ${yahooMarketOpen})`);
+                    return finalMarketStatus;
                 }
             }
         } catch (error) {
@@ -349,7 +355,7 @@ class PortfolioProDemo {
         }
         
         // Fallback to local time-based calculation
-        return this.updateMarketStatus();
+        return localMarketStatus;
     }
 
     // Load data from APIs

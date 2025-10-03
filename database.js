@@ -481,24 +481,32 @@ const watchlistOperations = {
       
       // Insert new watchlist items (let database auto-generate IDs)
       for (const item of watchlistItems) {
+        // Filter out any 'id' field from frontend data to prevent conflicts
+        const cleanItem = { ...item };
+        delete cleanItem.id; // Remove frontend ID to prevent database conflicts
+        
         // Ensure we have a valid ticker - use ticker or symbol, and validate it's not null/empty
-        const ticker = item.ticker || item.symbol;
+        const ticker = cleanItem.ticker || cleanItem.symbol;
         if (!ticker || ticker.trim() === '') {
-          console.error('Skipping watchlist item with null/empty ticker:', item);
+          console.error('Skipping watchlist item with null/empty ticker:', cleanItem);
           continue; // Skip this item if ticker is null or empty
         }
 
         // Ensure we have required fields with defaults
-        const name = item.name || `${ticker} Ltd`;
-        const sector = item.sector || 'Unknown';
-        const currentPrice = item.currentPrice || null;
-        const dayChange = item.dayChange || null;
-        const dayChangePercent = item.dayChangePercent || null;
-        const targetPrice = item.targetPrice || null;
-        const stopLoss = item.stopLoss || null;
-        const notes = item.notes || null;
-        const addedDate = item.addedDate || new Date().toISOString().split('T')[0];
-        const lastUpdated = item.lastUpdated || new Date().toISOString();
+        const name = cleanItem.name || `${ticker} Ltd`;
+        const sector = cleanItem.sector || 'Unknown';
+        const currentPrice = cleanItem.currentPrice || null;
+        const dayChange = cleanItem.dayChange || null;
+        const dayChangePercent = cleanItem.dayChangePercent || null;
+        const targetPrice = cleanItem.targetPrice || null;
+        const stopLoss = cleanItem.stopLoss || null;
+        const notes = cleanItem.notes || null;
+        const addedDate = cleanItem.addedDate || new Date().toISOString().split('T')[0];
+        const lastUpdated = cleanItem.lastUpdated || new Date().toISOString();
+
+        console.log(`Inserting watchlist item for user ${userId}:`, {
+          ticker, name, sector, addedDate
+        });
 
         // Note: Do NOT include 'id' in INSERT - let database auto-generate it
         await client.query(`
@@ -513,8 +521,10 @@ const watchlistOperations = {
       }
       
       await client.query('COMMIT');
+      console.log(`Successfully saved ${watchlistItems.length} watchlist items for user ${userId}`);
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error(`Failed to save watchlist items for user ${userId}:`, error);
       throw error;
     } finally {
       client.release();
