@@ -363,6 +363,46 @@
         .hidden {
             display: none !important;
         }
+
+        /* Repair Button Styling */
+        .repair-btn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .repair-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+
+        .repair-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            color: #d97706;
+            border: 1px solid #fed7aa;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+        }
     </style>
 </head>
 <body>
@@ -437,6 +477,25 @@
                     <div class="stat-card">
                         <div class="stat-label">System Status</div>
                         <div class="stat-value" style="color: #16a34a;">Online</div>
+                    </div>
+                </div>
+
+                <!-- Database Repair Section -->
+                <div class="users-section" style="margin-bottom: 2rem;">
+                    <div class="section-header">
+                        <h3 class="section-title">Database Maintenance</h3>
+                    </div>
+                    <div style="padding: 1.5rem;">
+                        <div style="margin-bottom: 1rem;">
+                            <h4 style="font-size: 1rem; font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Watchlist Table Repair</h4>
+                            <p style="font-size: 0.875rem; color: #64748b; margin-bottom: 1rem;">
+                                Fix watchlist database constraint issues by recreating the table with proper ID handling.
+                            </p>
+                            <button class="repair-btn" id="repairWatchlistBtn" onclick="adminPortal.repairWatchlistTable()">
+                                🔧 Repair Watchlist Table
+                            </button>
+                        </div>
+                        <div id="repairStatus" class="alert" style="margin-top: 1rem;"></div>
                     </div>
                 </div>
 
@@ -697,6 +756,73 @@
             clearMessages() {
                 document.getElementById('loginError').style.display = 'none';
                 document.getElementById('loginSuccess').style.display = 'none';
+            }
+
+            async repairWatchlistTable() {
+                const repairBtn = document.getElementById('repairWatchlistBtn');
+                const statusEl = document.getElementById('repairStatus');
+
+                if (!confirm('Are you sure you want to repair the watchlist table? This will recreate the table and may take a few moments.')) {
+                    return;
+                }
+
+                // Disable button and show loading state
+                repairBtn.disabled = true;
+                repairBtn.innerHTML = '🔄 Repairing...';
+                
+                // Show info message
+                statusEl.className = 'alert alert-info';
+                statusEl.textContent = 'Starting watchlist table repair...';
+                statusEl.style.display = 'block';
+
+                try {
+                    const response = await fetch('/api/admin/repair/watchlist', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        // Success
+                        statusEl.className = 'alert alert-success';
+                        statusEl.textContent = '✅ Watchlist table repaired successfully! All data has been preserved.';
+                        
+                        // Reload users to refresh stats
+                        setTimeout(() => {
+                            this.loadUsers();
+                        }, 1000);
+                    } else {
+                        // Error
+                        statusEl.className = 'alert alert-error';
+                        statusEl.textContent = `❌ Repair failed: ${result.message || 'Unknown error'}`;
+                    }
+                } catch (error) {
+                    console.error('Repair error:', error);
+                    statusEl.className = 'alert alert-error';
+                    statusEl.textContent = '❌ Connection error during repair. Please try again.';
+                } finally {
+                    // Re-enable button
+                    repairBtn.disabled = false;
+                    repairBtn.innerHTML = '🔧 Repair Watchlist Table';
+                    
+                    // Hide status message after 10 seconds
+                    setTimeout(() => {
+                        statusEl.style.display = 'none';
+                    }, 10000);
+                }
+            }
+
+            showRepairStatus(message, type = 'info') {
+                const statusEl = document.getElementById('repairStatus');
+                statusEl.className = `alert alert-${type}`;
+                statusEl.textContent = message;
+                statusEl.style.display = 'block';
+                
+                // Auto-hide after 8 seconds
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 8000);
             }
         }
 

@@ -987,9 +987,12 @@ body {
     color: var(--danger-color);
 }
 
-.index-card .change.positive,
+.index-card .change.positive {
+    color: var(--success-color);
+}
+
 .index-card .change.negative {
-    color: rgba(255, 255, 255, 0.95);
+    color: var(--danger-color);
 }
 
 .index-chart {

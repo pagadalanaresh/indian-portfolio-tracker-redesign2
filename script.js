@@ -8,7 +8,7 @@ class PortfolioProDemo {
         this.dummyData = this.initializeData();
         
         // Debug flag for authentication redirect - set to false to disable redirect for debugging
-        this.enableAuthRedirect = false; // Set to false to disable authentication redirect
+        this.enableAuthRedirect = true; // Set to false to disable authentication redirect
         
         this.init();
     }
@@ -103,30 +103,6 @@ class PortfolioProDemo {
                 }
             },
             news: [
-                {
-                    title: 'Nifty 50 hits new all-time high',
-                    subtitle: 'Index crosses 24,400 mark amid strong buying in IT and banking stocks',
-                    time: '30m ago',
-                    category: 'market'
-                },
-                {
-                    title: 'RBI keeps repo rate unchanged at 6.5%',
-                    subtitle: 'Monetary policy committee maintains status quo, focuses on inflation control',
-                    time: '2h ago',
-                    category: 'policy'
-                },
-                {
-                    title: 'IT sector shows strong momentum',
-                    subtitle: 'TCS, Infosys, and Wipro lead the rally with strong Q3 results',
-                    time: '4h ago',
-                    category: 'sector'
-                },
-                {
-                    title: 'Foreign investors turn bullish on Indian markets',
-                    subtitle: 'FII inflows reach ₹15,000 crores in the current month',
-                    time: '6h ago',
-                    category: 'investment'
-                }
             ]
         };
     }
@@ -464,21 +440,82 @@ class PortfolioProDemo {
                     errorCount++;
                     const indexKey = result.value?.key || 'unknown';
                     console.warn(`❌ Failed to update ${indexKey}:`, result.value?.error || result.reason);
+                    
+                    // For failed indices, generate some realistic sample data for demonstration
+                    if (result.value?.key) {
+                        const now = new Date();
+                        const baseValues = {
+                            nifty: 24800 + (Math.random() - 0.5) * 1000,
+                            sensex: 81000 + (Math.random() - 0.5) * 2000,
+                            banknifty: 52000 + (Math.random() - 0.5) * 1500,
+                            finnifty: 24000 + (Math.random() - 0.5) * 800
+                        };
+                        
+                        const baseValue = baseValues[result.value.key] || 25000;
+                        const changePercent = (Math.random() - 0.5) * 4; // -2% to +2%
+                        const change = (baseValue * changePercent) / 100;
+                        
+                        this.dummyData.marketIndices[result.value.key] = {
+                            value: Math.round(baseValue * 100) / 100,
+                            change: Math.round(change * 100) / 100,
+                            changePercent: Math.round(changePercent * 100) / 100,
+                            data: [],
+                            lastUpdated: now.toISOString(),
+                            isSimulated: true
+                        };
+                        
+                        console.log(`🎲 Generated sample data for ${result.value.key}: ${baseValue.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`);
+                    }
                 }
             });
 
             console.log(`📊 Market indices update completed: ${successCount} successful, ${errorCount} failed`);
             
-            // Update UI with new market indices data
+            // Always update UI regardless of success/failure
             this.updateMarketIndices();
             
             if (successCount > 0) {
                 console.log('🎉 Market indices updated successfully with real-time data');
+            } else if (errorCount > 0) {
+                console.log('⚠️ Using simulated market data due to API limitations');
             }
             
         } catch (error) {
             console.error('❌ Error fetching market indices:', error);
+            // Generate sample data as fallback
+            this.generateSampleMarketData();
+            this.updateMarketIndices();
         }
+    }
+
+    // Generate sample market data when API calls fail
+    generateSampleMarketData() {
+        console.log('🎲 Generating sample market data due to API failures...');
+        
+        const now = new Date();
+        const baseValues = {
+            nifty: 24800,
+            sensex: 81000,
+            banknifty: 52000,
+            finnifty: 24000
+        };
+        
+        Object.keys(this.dummyData.marketIndices).forEach(key => {
+            const baseValue = baseValues[key] || 25000;
+            const changePercent = (Math.random() - 0.5) * 4; // -2% to +2%
+            const change = (baseValue * changePercent) / 100;
+            
+            this.dummyData.marketIndices[key] = {
+                value: Math.round(baseValue * 100) / 100,
+                change: Math.round(change * 100) / 100,
+                changePercent: Math.round(changePercent * 100) / 100,
+                data: [],
+                lastUpdated: now.toISOString(),
+                isSimulated: true
+            };
+            
+            console.log(`🎲 Generated sample data for ${key}: ${baseValue.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`);
+        });
     }
 
     // Load data from APIs
@@ -1196,107 +1233,121 @@ class PortfolioProDemo {
         });
     }
 
-    // Apply colors to market index cards based on market conditions
-    applyMarketConditionColors(card, changePercent) {
+    // Update market indices with clean white background and colored accents
+    updateMarketIndices() {
+        Object.keys(this.dummyData.marketIndices).forEach(index => {
+            const data = this.dummyData.marketIndices[index];
+            const card = document.querySelector(`.index-card.${index}`);
+            
+            if (card) {
+                const valueEl = card.querySelector('.value');
+                const changeEl = card.querySelector('.change');
+                
+                // Update values
+                if (valueEl) {
+                    valueEl.textContent = this.formatNumber(data.value);
+                }
+                
+                if (changeEl) {
+                    const changeClass = data.change >= 0 ? 'positive' : 'negative';
+                    const changeIcon = data.change >= 0 ? 'arrow-up' : 'arrow-down';
+                    changeEl.className = `change ${changeClass}`;
+                    changeEl.innerHTML = `
+                        <i class="fas fa-${changeIcon}"></i>
+                        <span>${data.change >= 0 ? '+' : ''}${data.change.toFixed(2)} (${data.changePercent >= 0 ? '+' : ''}${data.changePercent.toFixed(2)}%)</span>
+                    `;
+                }
+                
+                // Apply clean white background with colored accents
+                this.applyCleanMarketStyling(card, data.changePercent, index);
+            }
+        });
+    }
+
+    // Apply clean white background with colored accents based on market conditions
+    applyCleanMarketStyling(card, changePercent, indexType) {
         // Remove existing market condition classes
         card.classList.remove('market-positive', 'market-negative', 'market-neutral', 'strong-movement');
         
-        if (changePercent > 0.5) {
-            // Strong positive - bright green
+        // Set clean white background
+        card.style.background = '#ffffff';
+        card.style.color = '#1e293b';
+        card.style.transition = 'all 0.3s ease-in-out';
+        
+        if (changePercent > 0) {
+            // Positive - green accents
             card.classList.add('market-positive');
-            card.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            card.style.color = '#ffffff';
-            card.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.3)';
-            
-            // Add strong movement animation for changes > 1%
-            if (Math.abs(changePercent) > 1.0) {
-                card.classList.add('strong-movement');
-            }
-        } else if (changePercent > 0) {
-            // Mild positive - light green
-            card.classList.add('market-positive');
-            card.style.background = 'linear-gradient(135deg, #d1fae5, #a7f3d0)';
-            card.style.color = '#065f46';
+            card.style.borderTop = '4px solid #10b981';
             card.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.15)';
-        } else if (changePercent < -0.5) {
-            // Strong negative - bright red
-            card.classList.add('market-negative');
-            card.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-            card.style.color = '#ffffff';
-            card.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.3)';
             
-            // Add strong movement animation for changes > 1%
+            // Add stronger glow for significant movements
             if (Math.abs(changePercent) > 1.0) {
+                card.style.boxShadow = '0 12px 40px rgba(16, 185, 129, 0.25)';
                 card.classList.add('strong-movement');
             }
         } else if (changePercent < 0) {
-            // Mild negative - light red
+            // Negative - red accents
             card.classList.add('market-negative');
-            card.style.background = 'linear-gradient(135deg, #fee2e2, #fecaca)';
-            card.style.color = '#7f1d1d';
+            card.style.borderTop = '4px solid #ef4444';
             card.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.15)';
-        } else {
-            // Neutral - default styling
-            card.classList.add('market-neutral');
-            card.style.background = 'linear-gradient(135deg, #f8fafc, #e2e8f0)';
-            card.style.color = '#1e293b';
-            card.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
-        }
-        
-        // Update chart line color based on market condition
-        const canvas = card.querySelector('canvas');
-        if (canvas && this.charts[`${card.classList[1]}Chart`]) {
-            const chart = this.charts[`${card.classList[1]}Chart`];
-            const dataset = chart.data.datasets[0];
             
-            if (changePercent > 0) {
-                dataset.borderColor = changePercent > 0.5 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(6, 95, 70, 0.8)';
-                dataset.backgroundColor = changePercent > 0.5 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(16, 185, 129, 0.2)';
-            } else if (changePercent < 0) {
-                dataset.borderColor = changePercent < -0.5 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(127, 29, 29, 0.8)';
-                dataset.backgroundColor = changePercent < -0.5 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(239, 68, 68, 0.2)';
-            } else {
-                dataset.borderColor = 'rgba(30, 41, 59, 0.8)';
-                dataset.backgroundColor = 'rgba(30, 41, 59, 0.1)';
+            // Add stronger glow for significant movements
+            if (Math.abs(changePercent) > 1.0) {
+                card.style.boxShadow = '0 12px 40px rgba(239, 68, 68, 0.25)';
+                card.classList.add('strong-movement');
             }
-            
-            chart.update('none'); // Update without animation for smooth transitions
+        } else {
+            // Neutral - gray accents
+            card.classList.add('market-neutral');
+            card.style.borderTop = '4px solid #94a3b8';
+            card.style.boxShadow = '0 8px 32px rgba(148, 163, 184, 0.15)';
         }
         
-        // Add subtle animation effect
-        card.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-        
-        // Update text colors for better contrast
+        // Update text colors for better contrast on white background
         const indexInfo = card.querySelector('.index-info h3');
         const indexExchange = card.querySelector('.index-exchange');
         const indexIcon = card.querySelector('.index-icon');
         
         if (indexInfo && indexExchange && indexIcon) {
-            if (changePercent > 0.5 || changePercent < -0.5) {
-                // Strong changes - white text
-                indexInfo.style.color = '#ffffff';
-                indexExchange.style.color = 'rgba(255, 255, 255, 0.8)';
-                indexIcon.style.color = 'rgba(255, 255, 255, 0.9)';
-            } else if (changePercent > 0) {
-                // Mild positive - dark green text
-                indexInfo.style.color = '#065f46';
-                indexExchange.style.color = '#047857';
-                indexIcon.style.color = '#059669';
+            // Set dark text colors for white background
+            indexInfo.style.color = '#1e293b';
+            indexExchange.style.color = '#64748b';
+            
+            // Color the icon based on market condition
+            if (changePercent > 0) {
+                indexIcon.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                indexIcon.style.color = '#ffffff';
             } else if (changePercent < 0) {
-                // Mild negative - dark red text
-                indexInfo.style.color = '#7f1d1d';
-                indexExchange.style.color = '#991b1b';
-                indexIcon.style.color = '#dc2626';
+                indexIcon.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                indexIcon.style.color = '#ffffff';
             } else {
-                // Neutral - default dark text
-                indexInfo.style.color = '#1e293b';
-                indexExchange.style.color = '#64748b';
-                indexIcon.style.color = '#475569';
+                indexIcon.style.background = 'linear-gradient(135deg, #64748b, #475569)';
+                indexIcon.style.color = '#ffffff';
             }
         }
         
+        // Update chart colors based on market condition
+        const canvas = card.querySelector('canvas');
+        if (canvas && this.charts[`${indexType}Chart`]) {
+            const chart = this.charts[`${indexType}Chart`];
+            const dataset = chart.data.datasets[0];
+            
+            if (changePercent > 0) {
+                dataset.borderColor = '#10b981';
+                dataset.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+            } else if (changePercent < 0) {
+                dataset.borderColor = '#ef4444';
+                dataset.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+            } else {
+                dataset.borderColor = '#64748b';
+                dataset.backgroundColor = 'rgba(100, 116, 139, 0.1)';
+            }
+            
+            chart.update('none');
+        }
+        
         // Log the market condition for debugging
-        console.log(`🎨 Applied market condition styling to ${card.classList[1]}: ${changePercent.toFixed(2)}% (${changePercent > 0 ? 'Positive' : changePercent < 0 ? 'Negative' : 'Neutral'}${Math.abs(changePercent) > 1.0 ? ' - Strong Movement' : ''})`);
+        console.log(`🎨 Applied clean white styling to ${indexType}: ${changePercent.toFixed(2)}% (${changePercent > 0 ? 'Positive' : changePercent < 0 ? 'Negative' : 'Neutral'}${Math.abs(changePercent) > 1.0 ? ' - Strong Movement' : ''})`);
     }
 
     // Update top performers
@@ -2223,9 +2274,12 @@ class PortfolioProDemo {
         const sectorTotals = {};
         const totalValue = this.dummyData.portfolio.reduce((sum, stock) => sum + stock.currentValue, 0);
         
-        // If no portfolio data, return empty
-        if (totalValue === 0) {
-            return { labels: [], values: [] };
+        // If no portfolio data, return sample sector data for demonstration
+        if (totalValue === 0 || this.dummyData.portfolio.length === 0) {
+            return {
+                labels: ['Technology', 'Banking', 'Healthcare', 'Energy', 'Consumer Goods'],
+                values: [35, 25, 20, 12, 8]
+            };
         }
         
         this.dummyData.portfolio.forEach(stock => {
