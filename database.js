@@ -146,15 +146,15 @@ async function initializeDatabase() {
     `);
 
     // Insert default admin user if not exists
-    const adminCheck = await client.query('SELECT id FROM admins WHERE username = $1', ['naresh']);
+    const adminCheck = await client.query('SELECT id FROM admins WHERE username = $1', ['admin']);
     if (adminCheck.rows.length === 0) {
       const bcrypt = require('bcrypt');
-      const hashedPassword = await bcrypt.hash('pagadala', 10);
+      const hashedPassword = await bcrypt.hash('pagadala@123', 10);
       await client.query(`
         INSERT INTO admins (username, email, password_hash)
         VALUES ($1, $2, $3)
-      `, ['naresh', 'naresh@admin.com', hashedPassword]);
-      console.log('✅ Default admin user created: naresh/pagadala');
+      `, ['admin', 'naresh@admin.com', hashedPassword]);
+      console.log('✅ Default admin user created: admin/pagadala@123');
     } else {
       console.log('✅ Default admin avaiable');
     }
@@ -500,6 +500,7 @@ const watchlistOperations = {
         const addedDate = item.addedDate || new Date().toISOString().split('T')[0];
         const lastUpdated = item.lastUpdated || new Date().toISOString();
 
+        // Note: Do NOT include 'id' in INSERT - let database auto-generate it
         await client.query(`
           INSERT INTO watchlist (
             user_id, ticker, name, sector, current_price, day_change, 

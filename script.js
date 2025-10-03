@@ -32,8 +32,11 @@ class PortfolioProDemo {
             this.initializeCharts();
             this.startAnimations();
             
-            // Update market status
+            // Update market status immediately and set up periodic updates
             await this.fetchMarketStatus();
+            
+            // Also call updateMarketStatus directly to ensure it shows immediately
+            this.updateMarketStatus();
             
             // Show initial section
             this.showSection('overview');
@@ -218,7 +221,10 @@ class PortfolioProDemo {
 
     // Check market status using Indian market timings
     updateMarketStatus() {
+        // Use a more reliable method to get IST time
         const now = new Date();
+        
+        // Create IST time directly
         const istTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
         
         const currentHour = istTime.getHours();
@@ -255,8 +261,8 @@ class PortfolioProDemo {
                 marketIndicator.style.color = '#ef4444'; // Red color
             }
             
-            // Update current IST time
-            const timeString = istTime.toLocaleTimeString('en-IN', {
+            // Update current IST time - use more reliable method
+            const timeString = new Date().toLocaleTimeString('en-IN', {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: true,
@@ -265,8 +271,22 @@ class PortfolioProDemo {
             marketTimeEl.textContent = `${timeString} IST`;
         }
         
-        // Log market status for debugging
-        console.log(`Market Status: ${isMarketOpen ? 'Open' : 'Closed'} at ${istTime.toLocaleTimeString('en-IN', {timeZone: 'Asia/Kolkata'})}`);
+        // Enhanced logging for debugging market status
+        console.log(`Market Status Debug:`, {
+            rawTime: now.toString(),
+            istTime: istTime.toString(),
+            currentTime: currentTime,
+            currentHour: currentHour,
+            currentMinute: currentMinute,
+            dayOfWeek: dayOfWeek,
+            dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
+            isWeekday: isWeekday,
+            isMarketHours: isMarketHours,
+            isMarketOpen: isMarketOpen,
+            marketOpenTime: marketOpenTime,
+            marketCloseTime: marketCloseTime,
+            timeComparison: `${currentTime} >= ${marketOpenTime} && ${currentTime} <= ${marketCloseTime} = ${isMarketHours}`
+        });
         
         return isMarketOpen;
     }
@@ -3020,7 +3040,8 @@ class PortfolioProDemo {
             const stockData = await this.fetchStockData(symbol);
             
             const newWatchlistItem = {
-                id: Date.now(),
+                id: Date.now(), // Frontend ID for UI purposes only
+                ticker: symbol, // Add ticker field for database consistency
                 symbol: symbol,
                 name: stockData.name,
                 sector: stockData.sector,
@@ -3029,7 +3050,8 @@ class PortfolioProDemo {
                 dayChangePercent: stockData.dayChangePercent,
                 targetPrice: targetPrice,
                 stopLoss: stopLoss,
-                notes: notes
+                notes: notes,
+                addedDate: new Date().toISOString().split('T')[0] // Add addedDate for database
             };
 
             // Add to watchlist
