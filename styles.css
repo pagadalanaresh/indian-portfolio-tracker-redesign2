@@ -861,6 +861,78 @@ body {
     color: var(--text-white);
 }
 
+/* Dynamic Market Condition Colors */
+.index-card.market-positive {
+    border: 2px solid rgba(16, 185, 129, 0.3);
+    transform: translateY(-2px);
+}
+
+.index-card.market-negative {
+    border: 2px solid rgba(239, 68, 68, 0.3);
+    transform: translateY(-2px);
+}
+
+.index-card.market-neutral {
+    border: 2px solid rgba(148, 163, 184, 0.3);
+}
+
+/* Enhanced hover effects for market condition cards */
+.index-card.market-positive:hover {
+    box-shadow: 0 12px 40px rgba(16, 185, 129, 0.4);
+    transform: translateY(-10px);
+}
+
+.index-card.market-negative:hover {
+    box-shadow: 0 12px 40px rgba(239, 68, 68, 0.4);
+    transform: translateY(-10px);
+}
+
+.index-card.market-neutral:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    transform: translateY(-10px);
+}
+
+/* Smooth transitions for market condition changes */
+.index-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                background 0.5s ease-in-out,
+                color 0.5s ease-in-out,
+                box-shadow 0.5s ease-in-out;
+}
+
+.index-card .index-info h3,
+.index-card .index-exchange,
+.index-card .index-icon {
+    transition: color 0.5s ease-in-out;
+}
+
+/* Pulsing animation for strong market movements */
+.index-card.market-positive.strong-movement {
+    animation: pulseGreen 2s infinite;
+}
+
+.index-card.market-negative.strong-movement {
+    animation: pulseRed 2s infinite;
+}
+
+@keyframes pulseGreen {
+    0%, 100% {
+        box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        box-shadow: 0 8px 32px rgba(16, 185, 129, 0.6);
+    }
+}
+
+@keyframes pulseRed {
+    0%, 100% {
+        box-shadow: 0 8px 32px rgba(239, 68, 68, 0.3);
+    }
+    50% {
+        box-shadow: 0 8px 32px rgba(239, 68, 68, 0.6);
+    }
+}
+
 .index-header {
     display: flex;
     align-items: center;

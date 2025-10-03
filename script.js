@@ -8,7 +8,7 @@ class PortfolioProDemo {
         this.dummyData = this.initializeData();
         
         // Debug flag for authentication redirect - set to false to disable redirect for debugging
-        this.enableAuthRedirect = true; // Set to false to disable authentication redirect
+        this.enableAuthRedirect = false; // Set to false to disable authentication redirect
         
         this.init();
     }
@@ -358,6 +358,129 @@ class PortfolioProDemo {
         return localMarketStatus;
     }
 
+    // Fetch real-time market indices data from Yahoo Finance API
+    async fetchMarketIndices() {
+        console.log('🔄 Fetching real-time market indices data...');
+        
+        try {
+            // Define market indices with their Yahoo Finance symbols
+            const indices = {
+                nifty: '^NSEI',      // Nifty 50
+                sensex: '^BSESN',    // BSE Sensex
+                banknifty: '^NSEBANK', // Bank Nifty
+                finnifty: '^CNXFIN'  // Fin Nifty
+            };
+
+            // Fetch data for all indices in parallel
+            const promises = Object.entries(indices).map(async ([key, symbol]) => {
+                try {
+                    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
+                    const fullUrl = proxyUrl + encodeURIComponent(yahooUrl);
+                    
+                    const response = await fetch(fullUrl, {
+                        method: 'GET',
+                        headers: {
+                            'User-Agent': 'curl/7.68.0',
+                            'Accept': '*/*',
+                            'Accept-Encoding': 'gzip, deflate',
+                            'Connection': 'keep-alive'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Yahoo Finance API error for ${key}: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.chart && data.chart.result && data.chart.result.length > 0) {
+                        const result = data.chart.result[0];
+                        const meta = result.meta;
+                        
+                        const currentPrice = meta.regularMarketPrice || meta.previousClose || 0;
+                        const previousClose = meta.previousClose || meta.chartPreviousClose || currentPrice;
+                        
+                        const dayChange = currentPrice - previousClose;
+                        const dayChangePercent = previousClose > 0 ? (dayChange / previousClose) * 100 : 0;
+                        
+                        // Generate chart data points for the last 30 data points
+                        const timestamps = result.timestamp || [];
+                        const prices = result.indicators.quote[0].close || [];
+                        
+                        const chartData = [];
+                        const dataPoints = Math.min(30, timestamps.length);
+                        
+                        for (let i = timestamps.length - dataPoints; i < timestamps.length; i++) {
+                            if (prices[i] !== null && prices[i] !== undefined) {
+                                chartData.push({
+                                    x: new Date(timestamps[i] * 1000).toLocaleDateString(),
+                                    y: prices[i]
+                                });
+                            }
+                        }
+                        
+                        return {
+                            key,
+                            value: Math.round(currentPrice * 100) / 100,
+                            change: Math.round(dayChange * 100) / 100,
+                            changePercent: Math.round(dayChangePercent * 100) / 100,
+                            data: chartData
+                        };
+                    }
+                    
+                    throw new Error(`No data found for ${key}`);
+                    
+                } catch (error) {
+                    console.warn(`Failed to fetch ${key} data:`, error.message);
+                    return {
+                        key,
+                        error: error.message
+                    };
+                }
+            });
+
+            // Wait for all promises to complete
+            const results = await Promise.allSettled(promises);
+            let successCount = 0;
+            let errorCount = 0;
+
+            results.forEach(result => {
+                if (result.status === 'fulfilled' && result.value && !result.value.error) {
+                    const indexData = result.value;
+                    
+                    // Update the market indices data
+                    this.dummyData.marketIndices[indexData.key] = {
+                        value: indexData.value,
+                        change: indexData.change,
+                        changePercent: indexData.changePercent,
+                        data: indexData.data,
+                        lastUpdated: new Date().toISOString()
+                    };
+                    
+                    successCount++;
+                    console.log(`✅ Successfully updated ${indexData.key}: ${indexData.value} (${indexData.changePercent >= 0 ? '+' : ''}${indexData.changePercent.toFixed(2)}%)`);
+                } else {
+                    errorCount++;
+                    const indexKey = result.value?.key || 'unknown';
+                    console.warn(`❌ Failed to update ${indexKey}:`, result.value?.error || result.reason);
+                }
+            });
+
+            console.log(`📊 Market indices update completed: ${successCount} successful, ${errorCount} failed`);
+            
+            // Update UI with new market indices data
+            this.updateMarketIndices();
+            
+            if (successCount > 0) {
+                console.log('🎉 Market indices updated successfully with real-time data');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error fetching market indices:', error);
+        }
+    }
+
     // Load data from APIs
     async loadDataFromAPIs() {
         try {
@@ -378,6 +501,9 @@ class PortfolioProDemo {
             if (closedPositionsResponse.ok) {
                 this.dummyData.closedPositions = await closedPositionsResponse.json();
             }
+
+            // Load real-time market indices data
+            await this.fetchMarketIndices();
 
             console.log('Data loaded from APIs:', {
                 portfolio: this.dummyData.portfolio.length,
@@ -471,6 +597,8 @@ class PortfolioProDemo {
             const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbols}`;
             const fullUrl = proxyUrl + encodeURIComponent(yahooUrl);
             
+            console.log(`Attempting bulk fetch for ${symbols.length} symbols:`, symbols);
+            
             const response = await fetch(fullUrl, {
                 method: 'GET',
                 headers: {
@@ -482,12 +610,27 @@ class PortfolioProDemo {
             });
             
             if (!response.ok) {
+                console.warn(`Yahoo Finance bulk API HTTP error: ${response.status}`);
                 throw new Error(`Yahoo Finance bulk API error! status: ${response.status}`);
             }
             
             const data = await response.json();
             
-            if (!data.quoteResponse || !data.quoteResponse.result) {
+            // Check for Yahoo Finance API authorization errors
+            if (data.finance && data.finance.error && data.finance.error.code === 'Unauthorized') {
+                console.warn('Yahoo Finance bulk API is unauthorized - falling back to individual calls');
+                throw new Error('Yahoo Finance bulk API unauthorized');
+            }
+            
+            console.log('Bulk API response structure:', {
+                hasQuoteResponse: !!data.quoteResponse,
+                hasResult: !!(data.quoteResponse && data.quoteResponse.result),
+                resultLength: data.quoteResponse?.result?.length || 0,
+                hasFinanceError: !!(data.finance && data.finance.error)
+            });
+            
+            if (!data.quoteResponse || !data.quoteResponse.result || data.quoteResponse.result.length === 0) {
+                console.warn('Bulk API returned no data, falling back to individual calls');
                 throw new Error('No bulk data received from Yahoo Finance API');
             }
             
@@ -526,7 +669,8 @@ class PortfolioProDemo {
             
         } catch (error) {
             console.error('Failed to fetch bulk stock data from Yahoo Finance API:', error.message);
-            throw error;
+            // Return empty object instead of throwing - let caller handle fallback
+            return {};
         }
     }
 
@@ -1021,7 +1165,7 @@ class PortfolioProDemo {
         }
     }
 
-    // Update market indices
+    // Update market indices with dynamic colors based on market conditions
     updateMarketIndices() {
         Object.keys(this.dummyData.marketIndices).forEach(index => {
             const data = this.dummyData.marketIndices[index];
@@ -1031,6 +1175,7 @@ class PortfolioProDemo {
                 const valueEl = card.querySelector('.value');
                 const changeEl = card.querySelector('.change');
                 
+                // Update values
                 if (valueEl) {
                     valueEl.textContent = this.formatNumber(data.value);
                 }
@@ -1044,8 +1189,114 @@ class PortfolioProDemo {
                         <span>${data.change >= 0 ? '+' : ''}${data.change.toFixed(2)} (${data.changePercent >= 0 ? '+' : ''}${data.changePercent.toFixed(2)}%)</span>
                     `;
                 }
+                
+                // Apply dynamic colors based on market conditions
+                this.applyMarketConditionColors(card, data.changePercent);
             }
         });
+    }
+
+    // Apply colors to market index cards based on market conditions
+    applyMarketConditionColors(card, changePercent) {
+        // Remove existing market condition classes
+        card.classList.remove('market-positive', 'market-negative', 'market-neutral', 'strong-movement');
+        
+        if (changePercent > 0.5) {
+            // Strong positive - bright green
+            card.classList.add('market-positive');
+            card.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            card.style.color = '#ffffff';
+            card.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.3)';
+            
+            // Add strong movement animation for changes > 1%
+            if (Math.abs(changePercent) > 1.0) {
+                card.classList.add('strong-movement');
+            }
+        } else if (changePercent > 0) {
+            // Mild positive - light green
+            card.classList.add('market-positive');
+            card.style.background = 'linear-gradient(135deg, #d1fae5, #a7f3d0)';
+            card.style.color = '#065f46';
+            card.style.boxShadow = '0 8px 32px rgba(16, 185, 129, 0.15)';
+        } else if (changePercent < -0.5) {
+            // Strong negative - bright red
+            card.classList.add('market-negative');
+            card.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            card.style.color = '#ffffff';
+            card.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.3)';
+            
+            // Add strong movement animation for changes > 1%
+            if (Math.abs(changePercent) > 1.0) {
+                card.classList.add('strong-movement');
+            }
+        } else if (changePercent < 0) {
+            // Mild negative - light red
+            card.classList.add('market-negative');
+            card.style.background = 'linear-gradient(135deg, #fee2e2, #fecaca)';
+            card.style.color = '#7f1d1d';
+            card.style.boxShadow = '0 8px 32px rgba(239, 68, 68, 0.15)';
+        } else {
+            // Neutral - default styling
+            card.classList.add('market-neutral');
+            card.style.background = 'linear-gradient(135deg, #f8fafc, #e2e8f0)';
+            card.style.color = '#1e293b';
+            card.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+        }
+        
+        // Update chart line color based on market condition
+        const canvas = card.querySelector('canvas');
+        if (canvas && this.charts[`${card.classList[1]}Chart`]) {
+            const chart = this.charts[`${card.classList[1]}Chart`];
+            const dataset = chart.data.datasets[0];
+            
+            if (changePercent > 0) {
+                dataset.borderColor = changePercent > 0.5 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(6, 95, 70, 0.8)';
+                dataset.backgroundColor = changePercent > 0.5 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+            } else if (changePercent < 0) {
+                dataset.borderColor = changePercent < -0.5 ? 'rgba(255, 255, 255, 0.9)' : 'rgba(127, 29, 29, 0.8)';
+                dataset.backgroundColor = changePercent < -0.5 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+            } else {
+                dataset.borderColor = 'rgba(30, 41, 59, 0.8)';
+                dataset.backgroundColor = 'rgba(30, 41, 59, 0.1)';
+            }
+            
+            chart.update('none'); // Update without animation for smooth transitions
+        }
+        
+        // Add subtle animation effect
+        card.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        
+        // Update text colors for better contrast
+        const indexInfo = card.querySelector('.index-info h3');
+        const indexExchange = card.querySelector('.index-exchange');
+        const indexIcon = card.querySelector('.index-icon');
+        
+        if (indexInfo && indexExchange && indexIcon) {
+            if (changePercent > 0.5 || changePercent < -0.5) {
+                // Strong changes - white text
+                indexInfo.style.color = '#ffffff';
+                indexExchange.style.color = 'rgba(255, 255, 255, 0.8)';
+                indexIcon.style.color = 'rgba(255, 255, 255, 0.9)';
+            } else if (changePercent > 0) {
+                // Mild positive - dark green text
+                indexInfo.style.color = '#065f46';
+                indexExchange.style.color = '#047857';
+                indexIcon.style.color = '#059669';
+            } else if (changePercent < 0) {
+                // Mild negative - dark red text
+                indexInfo.style.color = '#7f1d1d';
+                indexExchange.style.color = '#991b1b';
+                indexIcon.style.color = '#dc2626';
+            } else {
+                // Neutral - default dark text
+                indexInfo.style.color = '#1e293b';
+                indexExchange.style.color = '#64748b';
+                indexIcon.style.color = '#475569';
+            }
+        }
+        
+        // Log the market condition for debugging
+        console.log(`🎨 Applied market condition styling to ${card.classList[1]}: ${changePercent.toFixed(2)}% (${changePercent > 0 ? 'Positive' : changePercent < 0 ? 'Negative' : 'Neutral'}${Math.abs(changePercent) > 1.0 ? ' - Strong Movement' : ''})`);
     }
 
     // Update top performers
@@ -1840,10 +2091,15 @@ class PortfolioProDemo {
             const canvas = document.getElementById(`${index}Chart`);
             if (!canvas) return;
 
+            // Destroy existing chart if it exists
+            if (this.charts[`${index}Chart`]) {
+                this.charts[`${index}Chart`].destroy();
+            }
+
             const ctx = canvas.getContext('2d');
             const data = this.dummyData.marketIndices[index].data;
 
-            new Chart(ctx, {
+            this.charts[`${index}Chart`] = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: data.map(d => d.x),
@@ -2216,6 +2472,11 @@ class PortfolioProDemo {
         setInterval(() => {
             this.fetchMarketStatus();
         }, 60000); // Update every 60 seconds
+
+        // Update market indices every 2 minutes
+        setInterval(() => {
+            this.fetchMarketIndices();
+        }, 120000); // Update every 2 minutes
 
         // Start real-time stock price updates using Yahoo Finance API
         this.startRealTimeStockUpdates();

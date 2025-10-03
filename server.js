@@ -11,7 +11,8 @@ const {
   portfolioOperations, 
   closedPositionsOperations,
   watchlistOperations,
-  adminOperations
+  adminOperations,
+  repairOperations
 } = require('./database');
 
 const app = express();
@@ -710,6 +711,61 @@ app.get('/api/db-status', async (req, res) => {
       database: 'error',
       error: error.message,
       timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Database repair endpoint (admin only)
+app.post('/api/admin/repair/watchlist', authenticateAdmin, async (req, res) => {
+  const timestamp = new Date().toISOString();
+  try {
+    console.log(`[${timestamp}] Admin ${req.admin.username} initiated watchlist table repair`);
+    
+    const result = await repairOperations.fixWatchlistTable();
+    
+    console.log(`[${timestamp}] Watchlist table repair completed successfully`);
+    res.json({ 
+      success: true, 
+      message: 'Watchlist table repaired successfully',
+      result: result
+    });
+  } catch (error) {
+    console.error(`[${timestamp}] Watchlist table repair failed:`, error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to repair watchlist table',
+      error: error.message
+    });
+  }
+});
+
+// Database repair endpoint (public for debugging - remove in production)
+app.post('/api/repair/watchlist', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  try {
+    console.log(`[${timestamp}] Public watchlist table repair initiated`);
+    
+    if (!isDatabaseAvailable) {
+      return res.status(503).json({ 
+        success: false, 
+        message: 'Database not available for repair operation' 
+      });
+    }
+    
+    const result = await repairOperations.fixWatchlistTable();
+    
+    console.log(`[${timestamp}] Watchlist table repair completed successfully`);
+    res.json({ 
+      success: true, 
+      message: 'Watchlist table repaired successfully',
+      result: result
+    });
+  } catch (error) {
+    console.error(`[${timestamp}] Watchlist table repair failed:`, error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to repair watchlist table',
+      error: error.message
     });
   }
 });

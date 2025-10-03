@@ -474,27 +474,43 @@ const watchlistOperations = {
   async saveAll(userId, watchlistItems) {
     const client = await pool.connect();
     try {
+      console.log(`🔄 Starting watchlist save for user ${userId} with ${watchlistItems.length} items`);
+      
       await client.query('BEGIN');
       
       // Delete existing watchlist items for this user
-      await client.query('DELETE FROM watchlist WHERE user_id = $1', [userId]);
+      const deleteResult = await client.query('DELETE FROM watchlist WHERE user_id = $1', [userId]);
+      console.log(`🗑️  Deleted ${deleteResult.rowCount} existing watchlist items for user ${userId}`);
       
       // Insert new watchlist items (let database auto-generate IDs)
-      for (const item of watchlistItems) {
+      for (let i = 0; i < watchlistItems.length; i++) {
+        const item = watchlistItems[i];
+        
+        console.log(`📝 Processing watchlist item ${i + 1}/${watchlistItems.length}:`, {
+          originalKeys: Object.keys(item),
+          hasId: 'id' in item,
+          idValue: item.id
+        });
+        
         // Filter out any 'id' field from frontend data to prevent conflicts
         const cleanItem = { ...item };
         delete cleanItem.id; // Remove frontend ID to prevent database conflicts
         
+        console.log(`🧹 Cleaned item ${i + 1}:`, {
+          cleanedKeys: Object.keys(cleanItem),
+          hasId: 'id' in cleanItem
+        });
+        
         // Ensure we have a valid ticker - use ticker or symbol, and validate it's not null/empty
         const ticker = cleanItem.ticker || cleanItem.symbol;
         if (!ticker || ticker.trim() === '') {
-          console.error('Skipping watchlist item with null/empty ticker:', cleanItem);
+          console.error(`❌ Skipping watchlist item ${i + 1} with null/empty ticker:`, cleanItem);
           continue; // Skip this item if ticker is null or empty
         }
 
         // Ensure we have required fields with defaults
         const name = cleanItem.name || `${ticker} Ltd`;
-        const sector = cleanItem.sector || 'Unknown';
+        const sector = cleanItem.sector || 'Technology';
         const currentPrice = cleanItem.currentPrice || null;
         const dayChange = cleanItem.dayChange || null;
         const dayChangePercent = cleanItem.dayChangePercent || null;
@@ -504,27 +520,47 @@ const watchlistOperations = {
         const addedDate = cleanItem.addedDate || new Date().toISOString().split('T')[0];
         const lastUpdated = cleanItem.lastUpdated || new Date().toISOString();
 
-        console.log(`Inserting watchlist item for user ${userId}:`, {
-          ticker, name, sector, addedDate
+        console.log(`💾 Inserting watchlist item ${i + 1} for user ${userId}:`, {
+          ticker, name, sector, currentPrice, addedDate
         });
 
-        // Note: Do NOT include 'id' in INSERT - let database auto-generate it
-        await client.query(`
-          INSERT INTO watchlist (
-            user_id, ticker, name, sector, current_price, day_change, 
-            day_change_percent, target_price, stop_loss, notes, added_date, last_updated
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        `, [
-          userId, ticker, name, sector, currentPrice, dayChange, dayChangePercent,
-          targetPrice, stopLoss, notes, addedDate, lastUpdated
-        ]);
+        try {
+          // Note: Do NOT include 'id' in INSERT - let database auto-generate it
+          const insertResult = await client.query(`
+            INSERT INTO watchlist (
+              user_id, ticker, name, sector, current_price, day_change, 
+              day_change_percent, target_price, stop_loss, notes, added_date, last_updated
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id
+          `, [
+            userId, ticker, name, sector, currentPrice, dayChange, dayChangePercent,
+            targetPrice, stopLoss, notes, addedDate, lastUpdated
+          ]);
+          
+          console.log(`✅ Successfully inserted watchlist item ${i + 1} with database ID: ${insertResult.rows[0].id}`);
+        } catch (insertError) {
+          console.error(`❌ Failed to insert watchlist item ${i + 1}:`, {
+            error: insertError.message,
+            code: insertError.code,
+            detail: insertError.detail,
+            constraint: insertError.constraint,
+            item: { ticker, name, sector, currentPrice, addedDate }
+          });
+          throw insertError;
+        }
       }
       
       await client.query('COMMIT');
-      console.log(`Successfully saved ${watchlistItems.length} watchlist items for user ${userId}`);
+      console.log(`🎉 Successfully saved ${watchlistItems.length} watchlist items for user ${userId}`);
     } catch (error) {
       await client.query('ROLLBACK');
-      console.error(`Failed to save watchlist items for user ${userId}:`, error);
+      console.error(`💥 Failed to save watchlist items for user ${userId}:`, {
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        constraint: error.constraint,
+        stack: error.stack
+      });
       throw error;
     } finally {
       client.release();
@@ -623,6 +659,104 @@ const adminOperations = {
   }
 };
 
+// Database repair operations
+const repairOperations = {
+  // Fix watchlist table constraints
+  async fixWatchlistTable() {
+    const client = await pool.connect();
+    
+    try {
+      console.log('🔧 Starting watchlist table repair...');
+      
+      // Check if watchlist table exists and has data
+      const tableCheck = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_name = 'watchlist'
+        );
+      `);
+      
+      if (tableCheck.rows[0].exists) {
+        // Backup existing data
+        const existingData = await client.query('SELECT * FROM watchlist');
+        console.log(`📦 Found ${existingData.rows.length} existing watchlist records`);
+        
+        // Drop and recreate the table
+        await client.query('DROP TABLE IF EXISTS watchlist CASCADE');
+        console.log('🗑️  Dropped existing watchlist table');
+        
+        // Create new watchlist table
+        await client.query(`
+          CREATE TABLE watchlist (
+            id BIGSERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            ticker VARCHAR(50) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            sector VARCHAR(100),
+            current_price DECIMAL(10,2),
+            day_change DECIMAL(8,2),
+            day_change_percent DECIMAL(8,4),
+            target_price DECIMAL(10,2),
+            stop_loss DECIMAL(10,2),
+            notes TEXT,
+            added_date DATE DEFAULT CURRENT_DATE,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ Created new watchlist table with proper constraints');
+        
+        // Restore data if any existed
+        if (existingData.rows.length > 0) {
+          for (const row of existingData.rows) {
+            await client.query(`
+              INSERT INTO watchlist (
+                user_id, ticker, name, sector, current_price, day_change, 
+                day_change_percent, target_price, stop_loss, notes, added_date, last_updated
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            `, [
+              row.user_id, row.ticker, row.name, row.sector, row.current_price,
+              row.day_change, row.day_change_percent, row.target_price, row.stop_loss,
+              row.notes, row.added_date, row.last_updated
+            ]);
+          }
+          console.log(`📥 Restored ${existingData.rows.length} watchlist records`);
+        }
+      } else {
+        // Create new watchlist table
+        await client.query(`
+          CREATE TABLE watchlist (
+            id BIGSERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            ticker VARCHAR(50) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            sector VARCHAR(100),
+            current_price DECIMAL(10,2),
+            day_change DECIMAL(8,2),
+            day_change_percent DECIMAL(8,4),
+            target_price DECIMAL(10,2),
+            stop_loss DECIMAL(10,2),
+            notes TEXT,
+            added_date DATE DEFAULT CURRENT_DATE,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ Created new watchlist table');
+      }
+      
+      console.log('🎉 Watchlist table repair completed successfully!');
+      return { success: true, message: 'Watchlist table repaired successfully' };
+      
+    } catch (error) {
+      console.error('❌ Error repairing watchlist table:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+};
+
 module.exports = {
   pool,
   testConnection,
@@ -631,5 +765,6 @@ module.exports = {
   portfolioOperations,
   closedPositionsOperations,
   watchlistOperations,
-  adminOperations
+  adminOperations,
+  repairOperations
 };
