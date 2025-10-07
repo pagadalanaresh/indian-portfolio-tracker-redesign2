@@ -1457,6 +1457,43 @@ class PortfolioProDemo {
         }
     }
 
+    // Calculate holding period for a stock
+    calculateHoldingPeriod(purchaseDate) {
+        if (!purchaseDate) {
+            return 'N/A';
+        }
+        
+        const now = new Date();
+        const buyDate = new Date(purchaseDate);
+        const diffInDays = Math.floor((now - buyDate) / (1000 * 60 * 60 * 24));
+        
+        if (diffInDays === 0) {
+            return 'Today';
+        } else if (diffInDays === 1) {
+            return '1 day';
+        } else if (diffInDays < 30) {
+            return `${diffInDays} days`;
+        } else if (diffInDays < 365) {
+            const months = Math.floor(diffInDays / 30);
+            const remainingDays = diffInDays % 30;
+            if (remainingDays === 0) {
+                return months === 1 ? '1 month' : `${months} months`;
+            } else {
+                return months === 1 ? `1 month, ${remainingDays} days` : `${months} months, ${remainingDays} days`;
+            }
+        } else {
+            const years = Math.floor(diffInDays / 365);
+            const remainingDays = diffInDays % 365;
+            const months = Math.floor(remainingDays / 30);
+            
+            if (months === 0) {
+                return years === 1 ? '1 year' : `${years} years`;
+            } else {
+                return years === 1 ? `1 year, ${months} months` : `${years} years, ${months} months`;
+            }
+        }
+    }
+
     // Update top holdings
     updateTopHoldings() {
         const topHoldingsList = document.getElementById('topHoldingsList');
@@ -1684,6 +1721,10 @@ class PortfolioProDemo {
                         <div class="holding-stat-value ${stock.plPercent >= 0 ? 'positive' : 'negative'}">
                             ${stock.plPercent >= 0 ? '+' : ''}${stock.plPercent.toFixed(2)}%
                         </div>
+                    </div>
+                    <div class="holding-stat">
+                        <div class="holding-stat-label">Holding Period</div>
+                        <div class="holding-stat-value">${this.calculateHoldingPeriod(stock.purchaseDate)}</div>
                     </div>
                 </div>
                 <div class="holding-actions">
@@ -2516,11 +2557,11 @@ class PortfolioProDemo {
 
     // Start real-time stock price updates using Yahoo Finance API
     startRealTimeStockUpdates() {
-        console.log('Starting real-time stock price updates with Yahoo Finance API...');
+        console.log('Starting market-aware real-time stock price updates with Yahoo Finance API...');
         
-        // Update stock prices every 1 minute (60000 ms)
+        // Update stock prices every 1 minute, but only when market is open
         this.stockUpdateInterval = setInterval(async () => {
-            await this.updateStockPricesFromAPI();
+            await this.updateStockPricesFromAPIWithMarketCheck();
         }, 60000); // 1 minute
         
         // Also update immediately after 5 seconds
@@ -2528,7 +2569,21 @@ class PortfolioProDemo {
             this.updateStockPricesFromAPI();
         }, 5000);
         
-        console.log('Real-time stock updates started - prices will refresh every 1 minute using Yahoo Finance API');
+        console.log('Market-aware stock updates started - prices will refresh every 1 minute only when market is open');
+    }
+
+    // Update stock prices from Yahoo Finance API with market status check
+    async updateStockPricesFromAPIWithMarketCheck() {
+        // Check if market is open before updating
+        const isMarketOpen = this.updateMarketStatus();
+        
+        if (!isMarketOpen) {
+            console.log('🕒 Market is closed - skipping stock price update');
+            return;
+        }
+        
+        console.log('📈 Market is open - proceeding with stock price update');
+        await this.updateStockPricesFromAPI();
     }
 
     // Update stock prices from Yahoo Finance API using bulk endpoint
@@ -2872,6 +2927,12 @@ class PortfolioProDemo {
             btn.addEventListener('click', () => this.showAddWatchlistModal());
         });
 
+        // Add Closed Position button events
+        const addClosedPositionBtns = document.querySelectorAll('#addClosedPositionBtn');
+        addClosedPositionBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.showAddClosedPositionModal());
+        });
+
         // Refresh button event
         document.getElementById('refreshBtn')?.addEventListener('click', () => this.refreshStockPrices());
         
@@ -2911,6 +2972,8 @@ class PortfolioProDemo {
         document.getElementById('closeDeleteClosedPositionModal')?.addEventListener('click', () => this.hideDeleteClosedPositionConfirmation());
         document.getElementById('cancelDeleteClosedPosition')?.addEventListener('click', () => this.hideDeleteClosedPositionConfirmation());
         document.getElementById('confirmDeleteClosedPosition')?.addEventListener('click', () => this.handleDeleteClosedPosition());
+        document.getElementById('closeAddClosedPositionModal')?.addEventListener('click', () => this.hideAddClosedPositionModal());
+        document.getElementById('cancelAddClosedPosition')?.addEventListener('click', () => this.hideAddClosedPositionModal());
 
         // Form submit events
         document.getElementById('buyFromWatchlistForm')?.addEventListener('submit', (e) => this.handleBuyFromWatchlist(e));
@@ -2920,6 +2983,7 @@ class PortfolioProDemo {
         document.getElementById('sellStockForm')?.addEventListener('submit', (e) => this.handleSellStock(e));
         document.getElementById('addWatchlistForm')?.addEventListener('submit', (e) => this.handleAddWatchlist(e));
         document.getElementById('editClosedPositionForm')?.addEventListener('submit', (e) => this.handleEditClosedPosition(e));
+        document.getElementById('addClosedPositionForm')?.addEventListener('submit', (e) => this.handleAddClosedPosition(e));
 
         // Close modal on overlay click
         document.addEventListener('click', (e) => {
@@ -3993,6 +4057,10 @@ class PortfolioProDemo {
                             ${stock.plPercent >= 0 ? '+' : ''}${stock.plPercent.toFixed(2)}%
                         </div>
                     </div>
+                    <div class="holding-stat">
+                        <div class="holding-stat-label">Holding Period</div>
+                        <div class="holding-stat-value">${this.calculateHoldingPeriod(stock.purchaseDate)}</div>
+                    </div>
                 </div>
                 <div class="holding-actions">
                     <button class="holding-btn" onclick="portfolioProDemo.showEditStockModal(${stock.id})">
@@ -4443,8 +4511,13 @@ class PortfolioProDemo {
             document.getElementById('editClosedQuantity').value = position.quantity;
             document.getElementById('editClosedBuyPrice').value = position.buyPrice;
             document.getElementById('editClosedSellPrice').value = position.sellPrice;
-            document.getElementById('editClosedBuyDate').value = position.buyDate;
-            document.getElementById('editClosedSellDate').value = position.sellDate;
+            
+            // Format dates for HTML date inputs (YYYY-MM-DD format)
+            const buyDate = position.buyDate ? new Date(position.buyDate).toISOString().split('T')[0] : '';
+            const sellDate = position.sellDate ? new Date(position.sellDate).toISOString().split('T')[0] : '';
+            
+            document.getElementById('editClosedBuyDate').value = buyDate;
+            document.getElementById('editClosedSellDate').value = sellDate;
             document.getElementById('editClosedNotes').value = position.notes || '';
             
             // Store the position ID for later use
@@ -4667,6 +4740,274 @@ class PortfolioProDemo {
         
         this.hideDeleteClosedPositionConfirmation();
         this.showNotification(`${positionSymbol} closed position deleted successfully!`, 'success');
+    }
+
+    // Show Add Closed Position Modal
+    showAddClosedPositionModal() {
+        const modal = document.getElementById('addClosedPositionModal');
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            const lastMonth = new Date();
+            lastMonth.setMonth(lastMonth.getMonth() - 1);
+            const buyDate = lastMonth.toISOString().split('T')[0];
+            
+            document.getElementById('addClosedBuyDate').value = buyDate;
+            document.getElementById('addClosedSellDate').value = today;
+            
+            // Initialize stock symbol autocomplete for closed positions
+            this.initializeClosedPositionAutocomplete();
+            
+            // Update add summary
+            this.updateAddClosedPositionSummary();
+            
+            // Add real-time calculation
+            document.getElementById('addClosedQuantity').addEventListener('input', () => this.updateAddClosedPositionSummary());
+            document.getElementById('addClosedBuyPrice').addEventListener('input', () => this.updateAddClosedPositionSummary());
+            document.getElementById('addClosedSellPrice').addEventListener('input', () => this.updateAddClosedPositionSummary());
+        }
+    }
+
+    // Hide Add Closed Position Modal
+    hideAddClosedPositionModal() {
+        const modal = document.getElementById('addClosedPositionModal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            
+            // Reset form
+            const form = document.getElementById('addClosedPositionForm');
+            if (form) {
+                form.reset();
+            }
+        }
+    }
+
+    // Update add closed position summary with P&L calculation
+    updateAddClosedPositionSummary() {
+        const quantity = parseInt(document.getElementById('addClosedQuantity').value) || 0;
+        const buyPrice = parseFloat(document.getElementById('addClosedBuyPrice').value) || 0;
+        const sellPrice = parseFloat(document.getElementById('addClosedSellPrice').value) || 0;
+        
+        if (quantity > 0 && buyPrice > 0 && sellPrice > 0) {
+            const invested = buyPrice * quantity;
+            const realized = sellPrice * quantity;
+            const pl = realized - invested;
+            const plPercent = (pl / invested) * 100;
+            
+            const addSummary = document.getElementById('addClosedPositionSummary');
+            addSummary.innerHTML = `
+                <h4>Transaction Summary</h4>
+                <div class="sell-summary-item">
+                    <span class="sell-summary-label">Quantity</span>
+                    <span class="sell-summary-value">${quantity} shares</span>
+                </div>
+                <div class="sell-summary-item">
+                    <span class="sell-summary-label">Total Invested</span>
+                    <span class="sell-summary-value">${this.formatCurrency(invested)}</span>
+                </div>
+                <div class="sell-summary-item">
+                    <span class="sell-summary-label">Total Realized</span>
+                    <span class="sell-summary-value">${this.formatCurrency(realized)}</span>
+                </div>
+                <div class="sell-summary-item">
+                    <span class="sell-summary-label">Profit/Loss</span>
+                    <span class="sell-summary-value ${pl >= 0 ? 'positive' : 'negative'}">
+                        ${this.formatCurrency(pl)} (${plPercent >= 0 ? '+' : ''}${plPercent.toFixed(2)}%)
+                    </span>
+                </div>
+            `;
+        }
+    }
+
+    // Handle Add Closed Position form submission
+    async handleAddClosedPosition(e) {
+        e.preventDefault();
+        
+        const symbol = document.getElementById('addClosedSymbol').value.toUpperCase().trim();
+        const quantity = parseInt(document.getElementById('addClosedQuantity').value);
+        const buyPrice = parseFloat(document.getElementById('addClosedBuyPrice').value);
+        const sellPrice = parseFloat(document.getElementById('addClosedSellPrice').value);
+        const buyDate = document.getElementById('addClosedBuyDate').value;
+        const sellDate = document.getElementById('addClosedSellDate').value;
+        const notes = document.getElementById('addClosedNotes').value.trim() || null;
+
+        if (!symbol || !quantity || !buyPrice || !sellPrice || !buyDate || !sellDate) {
+            this.showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+
+        // Validate dates
+        const buyDateObj = new Date(buyDate);
+        const sellDateObj = new Date(sellDate);
+        
+        if (sellDateObj <= buyDateObj) {
+            this.showNotification('Sell date must be after buy date', 'error');
+            return;
+        }
+
+        this.showLoadingOverlay('Adding closed position...');
+
+        try {
+            // Calculate values
+            const invested = buyPrice * quantity;
+            const realized = sellPrice * quantity;
+            const pl = realized - invested;
+            const plPercent = invested > 0 ? (pl / invested) * 100 : 0;
+            const holdingPeriod = Math.floor((sellDateObj - buyDateObj) / (1000 * 60 * 60 * 24));
+
+            // Try to fetch stock data for company name and sector
+            let stockName = `${symbol} Limited`;
+            let stockSector = 'Unknown';
+            
+            try {
+                const stockData = await this.fetchStockData(symbol);
+                stockName = stockData.name;
+                stockSector = stockData.sector;
+            } catch (error) {
+                console.warn('Could not fetch stock data for name/sector, using defaults');
+            }
+
+            // Create new closed position
+            const newClosedPosition = {
+                id: Date.now(),
+                symbol: symbol,
+                name: stockName,
+                sector: stockSector,
+                quantity: quantity,
+                buyPrice: buyPrice,
+                sellPrice: sellPrice,
+                invested: invested,
+                realized: realized,
+                pl: pl,
+                plPercent: Math.round(plPercent * 100) / 100,
+                buyDate: buyDate,
+                sellDate: sellDate,
+                holdingPeriod: holdingPeriod,
+                notes: notes
+            };
+
+            // Add to closed positions
+            this.dummyData.closedPositions.push(newClosedPosition);
+            
+            // Save to API
+            await this.saveClosedPositionsData();
+            
+            // Update UI
+            this.renderDashboard();
+            if (this.currentSection === 'closed-positions') {
+                this.renderClosedPositions();
+            }
+            
+            this.hideAddClosedPositionModal();
+            this.showNotification(`${symbol} closed position added successfully!`, 'success');
+            
+        } catch (error) {
+            console.error('Error adding closed position:', error);
+            this.showNotification('Error adding closed position', 'error');
+        } finally {
+            this.hideLoadingOverlay();
+        }
+    }
+
+    // Initialize closed position stock symbol autocomplete
+    initializeClosedPositionAutocomplete() {
+        const closedSymbolInput = document.getElementById('addClosedSymbol');
+        if (!closedSymbolInput) return;
+
+        // Remove existing event listeners
+        closedSymbolInput.removeEventListener('input', this.handleClosedPositionSymbolInput);
+        
+        // Add new event listener
+        closedSymbolInput.addEventListener('input', (e) => this.handleClosedPositionSymbolInput(e));
+        
+        // Create suggestions dropdown if it doesn't exist
+        let suggestionsDropdown = document.getElementById('closedPositionSuggestions');
+        if (!suggestionsDropdown) {
+            suggestionsDropdown = document.createElement('div');
+            suggestionsDropdown.id = 'closedPositionSuggestions';
+            suggestionsDropdown.className = 'stock-suggestions';
+            closedSymbolInput.parentNode.appendChild(suggestionsDropdown);
+        }
+    }
+
+    // Handle closed position symbol input for autocomplete with debouncing
+    async handleClosedPositionSymbolInput(e) {
+        const input = e.target;
+        const query = input.value.toUpperCase().trim();
+        const suggestionsDropdown = document.getElementById('closedPositionSuggestions');
+        
+        // Clear previous timeout
+        if (this.closedPositionSearchTimeout) {
+            clearTimeout(this.closedPositionSearchTimeout);
+        }
+        
+        if (query.length < 3) {
+            suggestionsDropdown.style.display = 'none';
+            return;
+        }
+
+        // Show loading in suggestions immediately
+        suggestionsDropdown.innerHTML = '<div class="suggestion-loading">Searching stocks...</div>';
+        suggestionsDropdown.style.display = 'block';
+
+        // Debounce the API call - wait 500ms after user stops typing
+        this.closedPositionSearchTimeout = setTimeout(async () => {
+            try {
+                const suggestions = await this.searchStocks(query);
+                this.displayClosedPositionSuggestions(suggestions, suggestionsDropdown);
+            } catch (error) {
+                console.error('Error fetching closed position stock suggestions:', error);
+                suggestionsDropdown.innerHTML = '<div class="suggestion-error">Error fetching suggestions</div>';
+            }
+        }, 500); // 500ms delay
+    }
+
+    // Display closed position stock suggestions
+    displayClosedPositionSuggestions(suggestions, dropdown) {
+        if (suggestions.length === 0) {
+            dropdown.innerHTML = '<div class="suggestion-empty">No stocks found</div>';
+            return;
+        }
+
+        dropdown.innerHTML = suggestions.map(stock => `
+            <div class="suggestion-item" onclick="portfolioProDemo.selectClosedPositionStock('${stock.symbol}', '${stock.name}')">
+                <div class="suggestion-symbol">${stock.symbol}</div>
+                <div class="suggestion-name">${stock.name}</div>
+            </div>
+        `).join('');
+    }
+
+    // Select stock from closed position suggestions and populate form
+    async selectClosedPositionStock(symbol, name) {
+        const closedSymbolInput = document.getElementById('addClosedSymbol');
+        const suggestionsDropdown = document.getElementById('closedPositionSuggestions');
+        
+        // Set the symbol in input
+        closedSymbolInput.value = symbol;
+        
+        // Hide suggestions
+        suggestionsDropdown.style.display = 'none';
+        
+        // Show loading overlay
+        this.showLoadingOverlay('Fetching stock data...');
+        
+        try {
+            // Fetch current stock data
+            const stockData = await this.fetchStockData(symbol);
+            
+            // Show success notification
+            this.showNotification(`Stock data loaded for ${symbol}`, 'success');
+            
+        } catch (error) {
+            console.error('Error fetching closed position stock data:', error);
+            this.showNotification('Error fetching stock data', 'error');
+        } finally {
+            this.hideLoadingOverlay();
+        }
     }
 
 

@@ -2899,6 +2899,22 @@ body {
     margin-bottom: var(--spacing-md);
 }
 
+/* Add Closed Position Summary Styles */
+.add-closed-position-summary {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.add-closed-position-summary h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
 .btn-danger {
     background: var(--danger-gradient);
     color: var(--text-white);

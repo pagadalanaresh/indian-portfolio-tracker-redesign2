@@ -558,9 +558,9 @@
                                 <button class="filter-tab" data-filter="profit">Profit</button>
                                 <button class="filter-tab" data-filter="loss">Loss</button>
                             </div>
-                            <button class="btn btn-outline" id="exportClosedBtn">
-                                <i class="fas fa-download"></i>
-                                Export
+                            <button class="btn btn-primary" id="addClosedPositionBtn">
+                                <i class="fas fa-plus"></i>
+                                Add Stock
                             </button>
                         </div>
                     </div>
@@ -1189,6 +1189,63 @@
                         <i class="fas fa-trash"></i> Delete Position
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Closed Position Modal -->
+    <div class="modal-overlay" id="addClosedPositionModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Add Closed Position</h3>
+                <button class="modal-close" id="closeAddClosedPositionModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addClosedPositionForm">
+                    <div class="form-group">
+                        <label for="addClosedSymbol">Stock Symbol</label>
+                        <input type="text" id="addClosedSymbol" placeholder="e.g., RELIANCE, TCS, HDFCBANK" required>
+                        <small class="form-help">Enter NSE stock symbol</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="addClosedQuantity">Quantity</label>
+                        <input type="number" id="addClosedQuantity" placeholder="100" min="1" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="addClosedBuyPrice">Buy Price (₹)</label>
+                            <input type="number" id="addClosedBuyPrice" step="0.01" placeholder="2500.00" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="addClosedSellPrice">Sell Price (₹)</label>
+                            <input type="number" id="addClosedSellPrice" step="0.01" placeholder="2700.00" min="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="addClosedBuyDate">Buy Date</label>
+                            <input type="date" id="addClosedBuyDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="addClosedSellDate">Sell Date</label>
+                            <input type="date" id="addClosedSellDate" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="addClosedNotes">Notes</label>
+                        <textarea id="addClosedNotes" placeholder="Transaction notes..." rows="2"></textarea>
+                        <small class="form-help">Optional notes about this transaction</small>
+                    </div>
+                    <div class="add-closed-position-summary" id="addClosedPositionSummary">
+                        <!-- P&L calculation will be shown here -->
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelAddClosedPosition">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Closed Position</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
