@@ -825,16 +825,7 @@ body {
     overflow: hidden;
 }
 
-.index-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--primary-gradient);
-    transition: all var(--transition-normal);
-}
+/* Removed the ::before pseudo-element to prevent conflict with dynamic top borders */
 
 .index-card:hover {
     transform: translateY(-8px);
@@ -2890,6 +2881,22 @@ body {
 
 .sell-summary-value.negative {
     color: var(--danger-color);
+}
+
+/* Edit Closed Position Summary Styles */
+.edit-closed-position-summary {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+    border: 1px solid var(--gray-200);
+}
+
+.edit-closed-position-summary h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
 }
 
 .btn-danger {
